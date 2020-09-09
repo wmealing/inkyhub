@@ -1,49 +1,75 @@
+use async_std::fs;
 use async_std::os::unix::net::UnixListener;
 use async_std::os::unix::net::UnixStream;
 use async_std::prelude::*;
-
-
-use async_std::io;
-
 use async_std::task;
+use async_std::path::PathBuf;
 
+fn write_msg(pa: PathBuf) {
+    println!("Writing msg {:?}", pa);
 
-
-async fn handle_client(mut stream: UnixStream) -> io::Result<String> {
-    println!("handle client done");
-    let mut buf = String::new();
-    stream.read_to_string(&mut buf).await?;
-    println!("BUF: {}", buf);
-    Ok(buf.into())
+    
 }
 
-fn main() -> std::io::Result<()> {
+async fn broadcast_to(clients: Vec<async_std::fs::DirEntry>) ->    std::io::Result<String> {
+    println!("BROADCASTING TO!");
 
+    for client in &clients {
+        let p = client.clone();
+        write_msg(p.path());
+    }
 
+    Ok("Yeah".into())
+}
+
+async fn get_client_dirs() -> std::io::Result<Vec<async_std::fs::DirEntry>> {
     let mut clients = Vec::new();
 
-    task::block_on(async {
-        
-        let listener = UnixListener::bind("/tmp/rust-uds.sock").await?;
-        println!("Listening on {:?}", listener.local_addr()?);
+    let mut dir = fs::read_dir("/home/wmealing/inky/sensors/").await?;
 
-        let mut incoming = listener.incoming();
+    while let Some(res) = dir.next().await {
+        let entry = res?;
+        clients.push(entry);
+    }
 
-        while let Some(stream) = incoming.next().await {
-            let stream = stream?;
-            let client_result = task::spawn(async {
-                let x = handle_client(stream).await.unwrap();
-                x
-            });
+    Ok(clients)
+}
 
-            let file_path = client_result.await;
-            clients.push(file_path);
-            println!("Now clients is: {} long", clients.len());
+async fn process_stream(mut st: UnixStream) -> std::io::Result<()> {
+    println!("Processing stream");
+
+    let mut response = Vec::new();
+    let out = st.read_to_end(&mut response).await?;
+    println!("OUT: {}", out);
+    println!("DONE");
+    Ok(())
+}
+
+#[async_std::main]
+async fn main() -> std::io::Result<()> {
+    //    let mut clients = Vec::new();
+
+    let listener = UnixListener::bind("/home/wmealing/inky/input").await?;
+
+    let mut incoming = listener.incoming();
+
+    while let Some(stream) = incoming.next().await {
+        let mut stream = stream?;
+        stream.write_all(b"Ready> ").await?;
+        task::block_on(async {
+            let _a = process_stream(stream).await;
+        });
+
+        match get_client_dirs().await {
+            Ok(clients) => {
+                match task::block_on(broadcast_to(clients)) {
+                    Ok(_a) => { println!("Broadcast done") },
+                    Err(_e) => { println!("Error writing..") },
+                }
+            },
+            Err(_e) => println!("ERROR"),
         }
+    }
 
-
-        Ok(())
-
-    })
-    
+    Ok(())
 }
