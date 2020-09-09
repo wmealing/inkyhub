@@ -5,9 +5,11 @@ use async_std::prelude::*;
 use async_std::task;
 use async_std::path::PathBuf;
 
-fn write_msg(pa: PathBuf) {
+async fn write_msg(pa: PathBuf) -> std::io::Result<()> {
     println!("Writing msg {:?}", pa);
 
+    let r = fs::write(pa, b"Hello world!").await?;
+    Ok(r)
     
 }
 
@@ -16,7 +18,7 @@ async fn broadcast_to(clients: Vec<async_std::fs::DirEntry>) ->    std::io::Resu
 
     for client in &clients {
         let p = client.clone();
-        write_msg(p.path());
+        write_msg(p.path()).await;
     }
 
     Ok("Yeah".into())
