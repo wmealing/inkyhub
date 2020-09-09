@@ -27,7 +27,7 @@ async fn broadcast_to(clients: Vec<async_std::fs::DirEntry>) ->    std::io::Resu
 async fn get_client_dirs() -> std::io::Result<Vec<async_std::fs::DirEntry>> {
     let mut clients = Vec::new();
 
-    let mut dir = fs::read_dir("/home/wmealing/inky/sensors/").await?;
+    let mut dir = fs::read_dir("./sensors/").await?;
 
     while let Some(res) = dir.next().await {
         let entry = res?;
@@ -51,7 +51,7 @@ async fn process_stream(mut st: UnixStream) -> std::io::Result<()> {
 async fn main() -> std::io::Result<()> {
     //    let mut clients = Vec::new();
 
-    let listener = UnixListener::bind("/home/wmealing/inky/input").await?;
+    let listener = UnixListener::bind("./input").await?;
 
     let mut incoming = listener.incoming();
 
